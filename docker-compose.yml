@@ -1,0 +1,6 @@
+scaledown:
+  build: .
+  volumes:
+    - .:/stockflare
+  # env_file:
+  #   - ./.env

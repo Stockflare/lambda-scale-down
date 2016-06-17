@@ -38,13 +38,13 @@ exports.handler = function(event, context) {
 
         ecs.listServices(params, function(err, data) {
           if (err) {
-            console.log('listServices error');
-            console.log(err, err.stack);
+            // console.log('listServices error');
+            // console.log(err, err.stack);
             reject(err);
           }
           else {
-            console.log('listServices data');
-            console.log(data);
+            // console.log('listServices data');
+            // console.log(data);
             resolve([data.serviceArns, data.nextToken]);
           }
         });
@@ -64,12 +64,89 @@ exports.handler = function(event, context) {
         services.push(arn);
       });
     }, 'start')
-    .done(function(){
-      // Got all the service ARNS
-      console.log('ARNS');
-      console.log(services);
-    });
+    .then(function(){
+      // Got all the service ARNS  Now go through each one
+      // console.log('ARNS');
+      // console.log(services);
 
+      // Process each ARN
+      when.iterate(function(index){
+        // f
+        return index + 1;
+      }, function(index){
+        // predicate
+        if (index >= services.length) {
+          return true;
+        } else {
+          return false;
+        }
+      }, function(index){
+        // handler
+
+        var arn = services[index];
+        // Get the details for this Service
+        return when.promise(function(resolve, reject, notify){
+          var params = {
+            services: [arn],
+            cluster: event.cluster
+          };
+
+          ecs.describeServices(params, function(err, data) {
+            if (err) {
+              // console.log('describeServices');
+              // console.log(err, err.stack);
+              reject(err);
+            }
+            else {
+              // console.log('describeServices data');
+              // console.log(data);
+              resolve(data.services[0]);
+            }
+          });
+
+        })
+        .then(function(service){
+          // Got the data for a service
+          // console.log('service');
+          console.log('Checking service: ' + service.serviceArn);
+
+          // Scale down the service if needed
+          return when.promise(function(resolve, reject, notify){
+            if (service.desiredCount > count) {
+              // Need to Scale Down
+              console.log('Scaling Down: ' + service.serviceName);
+              var params = {
+                service: service.serviceName,
+                cluster: event.cluster,
+                desiredCount: count
+              };
+
+              ecs.updateService(params, function(err, data) {
+                if (err) {
+                  // console.log('updateService error');
+                  // console.log(err, err.stack);
+                  reject(err);
+                }
+                else {
+                  // console.log('updateService data');
+                  // console.log(data);
+                  resolve();
+                }
+              });
+            } else {
+              resolve();
+            }
+          });
+        });
+      }, 0)
+      .done(function(){
+        // All scaling done
+        resolve();
+      }, function(err){
+        // Scaling has failed
+        reject(err);
+      });
+    });
   });
 
   promise.done(function(data){

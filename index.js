@@ -108,31 +108,44 @@ exports.handler = function(event, context) {
         .then(function(service){
           // Got the data for a service
           // console.log('service');
-          console.log('Checking service: ' + service.serviceArn);
+          // console.log(service);
+          // console.log('Checking service: ' + service.serviceArn);
 
           // Scale down the service if needed
           return when.promise(function(resolve, reject, notify){
-            if (service.desiredCount > count) {
-              // Need to Scale Down
-              console.log('Scaling Down: ' + service.serviceName);
-              var params = {
-                service: service.serviceName,
-                cluster: event.cluster,
-                desiredCount: count
-              };
+            // Only scale down the harverster and worker services
+            var service_name = service.serviceName;
+            if (
+              service_name.indexOf('harvester-service') !== -1
+              || service_name.indexOf('alert-worker') !== -1
+              || service_name.indexOf('push-worker') !== -1
 
-              ecs.updateService(params, function(err, data) {
-                if (err) {
-                  // console.log('updateService error');
-                  // console.log(err, err.stack);
-                  reject(err);
-                }
-                else {
-                  // console.log('updateService data');
-                  // console.log(data);
-                  resolve();
-                }
-              });
+            ) {
+              console.log('Checking service: ' + service.serviceArn);
+              if (service.desiredCount > count) {
+                // Need to Scale Down
+                console.log('Scaling Down: ' + service.serviceName);
+                var params = {
+                  service: service.serviceName,
+                  cluster: event.cluster,
+                  desiredCount: count
+                };
+
+                ecs.updateService(params, function(err, data) {
+                  if (err) {
+                    // console.log('updateService error');
+                    // console.log(err, err.stack);
+                    reject(err);
+                  }
+                  else {
+                    // console.log('updateService data');
+                    // console.log(data);
+                    resolve();
+                  }
+                });
+              } else {
+                resolve();
+              }
             } else {
               resolve();
             }
